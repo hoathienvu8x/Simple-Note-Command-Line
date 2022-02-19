@@ -99,17 +99,19 @@ fi
 if [ "$action" == "info" ]; then
     echo -ne $(python3 -c "import sys
 import sqlite3
+from datetime import datetime
 
 try:
     conn = sqlite3.connect('$DATAPATH')
     cur = conn.cursor()
-    sel = cur.execute(\"SELECT title, body, link FROM notes WHERE id = $args\").fetchone()
+    sel = cur.execute(\"SELECT id, title, body, link, modified FROM notes WHERE id = $args\").fetchone()
     if not sel:
         cur.close()
         conn.close()
         print('The note is not exists')
         sys.exit(0)
-    info = '# ' + sel[0] + '\n\n' + sel[1] + '\n\n' + sel[2]
+    updated = datetime.strptime(sel[4],'%Y-%m-%d %H:%M:%S').strftime('%B %d, %Y')
+    info = '---\ntitle: Note#'+str(sel[0])+'\nsection: 1\nheader: '+sel[1]+'\nfooter: Note v1.0\ndate: '+updated+'\n---\n\n'+ sel[2] + '\n\n' + sel[3]
     print(info.replace('\n','\\\n'))
     cur.close()
     conn.close()
