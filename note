@@ -73,7 +73,7 @@ fi
 
 if [ "$action" == "search" ]; then
     args="${args//\"/\\\"}"
-    echo -ne $(python -c "import sys
+    echo -ne $(python3 -c "import sys
 import sqlite3
 
 try:
@@ -97,7 +97,7 @@ sys.exit(0)")
 fi
 
 if [ "$action" == "info" ]; then
-    echo -ne $(python -c "import sys
+    echo -ne $(python3 -c "import sys
 import sqlite3
 
 try:
@@ -121,7 +121,7 @@ sys.exit(0)") | pandoc -s -f markdown -t man - | man -l - | less
 fi
 
 if [ "$action" == "add" ]; then
-    echo $(python -c "import sys
+    echo $(python3 -c "import sys
 import sqlite3
 
 def parse_meta(text):
@@ -193,7 +193,7 @@ fi
 
 id="${3:-}"
 
-echo $(python -c "import sys
+echo $(python3 -c "import sys
 import sqlite3
 
 def parse_meta(text):
