@@ -1,0 +1,272 @@
+#!/bin/bash
+
+action="${1:-}"
+action="${action,,}"
+
+if [ "$action" == "" ]; then
+    echo "Usage: note [action|keyword] [markdown file] [id]"
+    echo "action: [search|add|update|info]"
+    echo "Markdown file template"
+    echo ">>>"
+    echo "title:the title"
+    echo "link:the link"
+    echo "---"
+    echo ""
+    echo "The body"
+    echo "<<<"
+    exit
+fi
+
+if [ "$action" != "add" ] && [ "$action" != "update" ] && [ "$action" != "search" ] && [ "$action" != "info" ]; then
+    action="search"
+fi
+args="${2:-}"
+if [ "$action" == "search" ]; then
+    if [ "${1:-}" != "$action" ]; then
+        args="${1:-}"
+    fi
+fi
+
+if [ "$action" != "search" ]; then
+    if [ "$action" == "info" ]; then
+        re='^[0-9]+$'
+        if ! [[ $args =~ $re ]] ; then
+            echo "ID is not valid"
+            exit
+        fi
+    else
+        if [ -z "$args" ]; then
+            echo "File is empty."
+            exit
+        fi
+
+        if [ ! -f "$args" ]; then
+            echo "File '$args' is not exits."
+            exit
+        fi
+    fi
+fi
+
+if [ "$action" == "search" ]; then
+    if [ -z "$args" ]; then
+        echo "Keywod is empty."
+        exit
+    fi
+fi
+
+if [ "$action" == "update" ]; then
+    re='^[0-9]+$'
+    id="${3:-}"
+    if ! [[ $id =~ $re ]] ; then
+        echo "ID is not valid"
+        exit
+    fi
+fi
+
+ABSPATH="$HOME/.notes"
+DATAPATH="$ABSPATH/notes.db"
+
+if [ ! -f "$DATAPATH" ]; then
+    echo "Initial 'notes' databse"
+    echo -ne "CREATE TABLE notes (id INTEGER PRIMARY KEY, title TEXT, body TEXT, link TEXT, created DATETIME DEFAULT (datetime('now', 'localtime')), modified DATETIME DEFAULT (datetime('now', 'localtime')));\n.quit" | sqlite3 "$DATAPATH"
+fi
+
+if [ "$action" == "search" ]; then
+    args="${args//\"/\\\"}"
+    echo -ne $(python -c "import sys
+import sqlite3
+
+try:
+    conn = sqlite3.connect('$DATAPATH')
+    cur = conn.cursor()
+    sel = cur.execute(\"SELECT id, title FROM notes WHERE title || ' ' || body LIKE '%$args%'\").fetchall()
+    if len(sel) <= 0:
+        cur.close()
+        conn.close()
+        print('[$args] is not found.')
+        sys.exit(0)
+    for row in sel:
+        print('[' + str(row[0]) + ',' + row[1] + ']\\\n')
+    cur.close()
+    conn.close()
+except Exception as ex:
+    print(ex)
+
+sys.exit(0)")
+    exit
+fi
+
+if [ "$action" == "info" ]; then
+    echo -ne $(python -c "import sys
+import sqlite3
+
+try:
+    conn = sqlite3.connect('$DATAPATH')
+    cur = conn.cursor()
+    sel = cur.execute(\"SELECT title, body, link FROM notes WHERE id = $args\").fetchone()
+    if not sel:
+        cur.close()
+        conn.close()
+        print('The note is not exists')
+        sys.exit(0)
+    info = '# ' + sel[0] + '\n\n' + sel[1] + '\n\n' + sel[2]
+    print(info.replace('\n','\\\n'))
+    cur.close()
+    conn.close()
+except Exception as ex:
+    print(ex)
+
+sys.exit(0)") | pandoc -s -f markdown -t man - | man -l - | less
+    exit
+fi
+
+if [ "$action" == "add" ]; then
+    echo $(python -c "import sys
+import sqlite3
+
+def parse_meta(text):
+    dic = {}
+    lines = text.strip().split('\n')
+    for l in lines:
+        l = l.strip()
+        if not l:
+            continue
+        pos = l.find(':')
+        if pos == -1:
+            continue
+        k = l[0:pos]
+        k = k.strip()
+        if not k:
+            continue
+        v = l[pos+1:]
+        if k == 'id':
+            dic[k] = int(v.strip())
+        else:
+            dic[k] = v.strip()
+    return dic
+
+node_id = -1
+
+try:
+    with open('$args', 'r') as f:
+        content = f.read()
+    content = content.strip()
+    note = {}
+    retVal = content.find('\n---\n')
+    if retVal != -1:
+        note = parse_meta(content[0:retVal])
+        note['body'] = content[retVal+5:].strip()
+    else:
+        note['body'] = content.strip()
+
+    note['body'] = note['body'].replace('—','-')
+    note['body'] = note['body'].replace('“','\"')
+    note['body'] = note['body'].replace('”','\"')
+    note['body'] = note['body'].replace('‘','\\'')
+    note['body'] = note['body'].replace('’','\\'')
+    note['body'] = note['body'].replace('…','...')
+    print(note['body'])
+    keys = []
+    values = []
+
+    for k in note:
+        if k not in ['title','link','body','created','modified']:
+            continue
+        keys.append(k)
+        values.append(note[k])
+
+    conn = sqlite3.connect('$DATAPATH')
+    questions = [ '?' for _ in keys ]
+    conn.execute(\"INSERT INTO notes (\" + ','.join(keys) + \") VALUES (\" + ','.join(questions) + \")\", values)
+    conn.commit()
+    if conn.total_changes > 0:
+        print('OK')
+    else:
+        print('NO')
+    conn.close()
+except Exception as ex:
+    print('NO', ex)
+    pass
+sys.exit(0)")
+    exit
+fi
+
+id="${3:-}"
+
+echo $(python -c "import sys
+import sqlite3
+
+def parse_meta(text):
+    dic = {}
+    lines = text.strip().split('\n')
+    for l in lines:
+        l = l.strip()
+        if not l:
+            continue
+        pos = l.find(':')
+        if pos == -1:
+            continue
+        k = l[0:pos]
+        k = k.strip()
+        if not k:
+            continue
+        v = l[pos+1:]
+        if k == 'id':
+            dic[k] = int(v.strip())
+        else:
+            dic[k] = v.strip()
+    return dic
+
+node_id = $id
+
+if node_id <= 0:
+    print('NO')
+    sys.exit(0)
+
+try:
+    with open('$input', 'r') as f:
+        content = f.read()
+    content = content.strip()
+    note = {}
+    retVal = content.find('\n---\n')
+    if retVal != -1:
+        note = parse_meta(content[0:retVal])
+        note['body'] = content[retVal+5:].strip()
+    else:
+        note['body'] = content.strip()
+
+    note['body'] = note['body'].replace('—','-')
+    note['body'] = note['body'].replace('“','\"')
+    note['body'] = note['body'].replace('”','\"')
+    note['body'] = note['body'].replace('‘','\\'')
+    note['body'] = note['body'].replace('’','\\'')
+    note['body'] = note['body'].replace('…','...')
+    print(note['body'])
+    keys = []
+    values = []
+
+    for k in note:
+        if k not in ['title','link','body','created','modified']:
+            continue
+        keys.append(k)
+        values.append(note[k])
+
+    conn = sqlite3.connect('$DATAPATH')
+    items = []
+    for i in range(len(keys)):
+        items.append(keys[i] + ' = ?')
+    items.append(\"modified = (datetime('now', 'localtime'))\")
+    values.append(node_id)
+    conn.execute(\"UPDATE notes SET \" + ','.join(items) + \" WHERE id = ?\", values)
+    conn.commit()
+    if conn.total_changes >= 0:
+        print('Updated')
+    else:
+        print('NO')
+    conn.close()
+except Exception as ex:
+    print('NO', ex)
+    pass
+sys.exit(0)")
+    exit
+fi
