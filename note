@@ -145,8 +145,6 @@ def parse_meta(text):
             dic[k] = v.strip()
     return dic
 
-node_id = -1
-
 try:
     with open('$args', 'r') as f:
         content = f.read()
@@ -166,6 +164,17 @@ try:
     note['body'] = note['body'].replace('’','\\'')
     note['body'] = note['body'].replace('…','...')
 
+    conn = sqlite3.connect('$DATAPATH')
+
+    if 'title' in note:
+        cur = conn.cursor()
+        item = cur.execute(\"SELECT id FROM notes WHERE title = ?\", [ note['title'] ]).fetchone()
+        if item:
+            cur.close()
+            conn.close()
+            print('The note is exists please using command \`note update \"$args\" %d\`' % item[0])
+            sys.exit(0)
+
     keys = []
     values = []
 
@@ -175,7 +184,6 @@ try:
         keys.append(k)
         values.append(note[k])
 
-    conn = sqlite3.connect('$DATAPATH')
     questions = [ '?' for _ in keys ]
     conn.execute(\"INSERT INTO notes (\" + ','.join(keys) + \") VALUES (\" + ','.join(questions) + \")\", values)
     conn.commit()
@@ -224,7 +232,16 @@ if node_id <= 0:
     sys.exit(0)
 
 try:
-    with open('$input', 'r') as f:
+    conn = sqlite3.connect('$DATAPATH')
+    cur = conn.cursor()
+    item = cur.execute(\"SELECT id FROM notes WHERE id = ?\", [ note_id ]).fetchone()
+    if not item:
+        cur.close()
+        conn.close()
+        print('The note is not exists you can using command \`note add \"$args\"\`')
+        sys.exit(0)
+
+    with open('$args', 'r') as f:
         content = f.read()
     content = content.strip()
     note = {}
@@ -251,7 +268,6 @@ try:
         keys.append(k)
         values.append(note[k])
 
-    conn = sqlite3.connect('$DATAPATH')
     items = []
     for i in range(len(keys)):
         items.append(keys[i] + ' = ?')
