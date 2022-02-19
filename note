@@ -165,7 +165,7 @@ try:
     note['body'] = note['body'].replace('‘','\\'')
     note['body'] = note['body'].replace('’','\\'')
     note['body'] = note['body'].replace('…','...')
-    print(note['body'])
+
     keys = []
     values = []
 
@@ -241,7 +241,7 @@ try:
     note['body'] = note['body'].replace('‘','\\'')
     note['body'] = note['body'].replace('’','\\'')
     note['body'] = note['body'].replace('…','...')
-    print(note['body'])
+
     keys = []
     values = []
 
