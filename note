@@ -108,10 +108,12 @@ try:
     if not sel:
         cur.close()
         conn.close()
-        print('The note is not exists')
+        updated = datetime.now().strftime('%B %d, %Y')
+        info = '---\ntitle: Note\nsection: 1\nheader: 404 Not Found\nfooter: Note v1.0\ndate: '+updated+'\n---\n\nThe note is not exists'
+        print(info.replace('\n','\\\n'))
         sys.exit(0)
     updated = datetime.strptime(sel[4],'%Y-%m-%d %H:%M:%S').strftime('%B %d, %Y')
-    info = '---\ntitle: Note#'+str(sel[0])+'\nsection: 1\nheader: '+sel[1]+'\nfooter: Note v1.0\ndate: '+updated+'\n---\n\n'+ sel[2] + '\n\n' + sel[3]
+    info = '---\ntitle: Note\nsection: '+str(sel[0])+'\nheader: '+sel[1]+'\nfooter: Note v1.0\ndate: '+updated+'\n---\n\n'+ sel[2] + '\n\n' + sel[3]
     print(info.replace('\n','\\\n'))
     cur.close()
     conn.close()
